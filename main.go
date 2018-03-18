@@ -93,7 +93,7 @@ func main() {
 		}
 		// Output result
 		for company, contributions := range companyContributions {
-			fmt.Printf("%s: %d", company, contributions)
+			fmt.Printf("release: %s %s: %d\n", version, company, contributions)
 		}
 	}
 }
