@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"net/http"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -14,30 +15,47 @@ import (
 
 // GithubPersonProfile is basic github person information.
 type GithubPersonProfile struct {
-	ID string
+	ID       string
 	WorksFor string
-	Email string
+	Email    string
 }
 
 // GithubContributor carries the contributions of each person
 type GithubContributor struct {
-	Num int
+	Num    int
 	Person *GithubPersonProfile
 }
 
 // We only care about the following companies - they are all in lower case.
 var Companies = []string{"google", "red hat", "microsoft", "huawei"}
 
-func (p *GithubPersonProfile)ScrapeProfileById(id string) error {
+func (p *GithubPersonProfile) ScrapeProfileById(id string) error {
 	url := "https://github.com/" + id
-	doc, err := goquery.NewDocument(url)
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+	//First login github.com
+	//Press F12 to get the detailed cookie info
+	//Fill in the cookie
+	req.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:58.0) Gecko/20100101 Firefox/58.0")
+	req.Header.Add("Referer", url)
+	req.Header.Add("Cookie", "logged_in=yes; _octo=GH1.1.709081642.1513934084; _ga=GA1.2.1671139169.1513934084; _gh_sess=dVVI***; tz=Australia%2FPerth; user_session=_phQVf***; __Host-user_session_same_site=_phQVfL**; dotcom_user=***; _gat=1")
+
+	res, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	doc, err := goquery.NewDocumentFromResponse(res)
 	if err != nil {
 		return err
 	}
 	wf := doc.Find("li[itemprop='worksFor']").Text()
-	// TODO: should login first to fetch email
-	// em := doc.Find("li[itemprop='email']").Text()
+	em := doc.Find("li[itemprop='email']").Text()
 	p.WorksFor = wf
+	p.Email = em
 	return nil
 }
 
@@ -75,7 +93,7 @@ func main() {
 				continue
 			}
 			contributor := &GithubContributor{
-				Num: num,
+				Num:    num,
 				Person: &GithubPersonProfile{ID: strs[1]},
 			}
 			// TODO: work in concurrent
